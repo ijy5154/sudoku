@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="ko">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>스도쿠 - Tailwind HTML 단일 파일</title>
+        <!-- Tailwind CSS CDN -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <meta name="color-scheme" content="light dark" />
+        <style>
+            /* 숫자 입력 화살표 제거(모바일/데스크탑 공통) */
+            input[type="text"]::-webkit-outer-spin-button,
+            input[type="text"]::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            input[type="text"] {
+                -moz-appearance: textfield;
+            }
+        </style>
+    </head>
+    <body
+        class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+    >
+        <div class="max-w-4xl mx-auto px-4 py-6 md:py-10">
+            <header
+                class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6"
+            >
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold">스도쿠</h1>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                        Tailwind CSS만 사용하는 단일 HTML 버전
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <label class="inline-flex items-center gap-2 text-sm">
+                        <span class="text-slate-600 dark:text-slate-300"
+                            >난이도</span
+                        >
+                        <select
+                            id="difficulty"
+                            class="px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                        >
+                            <option value="easy">쉬움</option>
+                            <option value="medium">보통</option>
+                            <option value="hard">어려움</option>
+                        </select>
+                    </label>
+                    <button
+                        id="newGame"
+                        class="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm"
+                    >
+                        새 게임
+                    </button>
+                    <button
+                        id="checkBtn"
+                        class="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+                    >
+                        정답 확인
+                    </button>
+                    <button
+                        id="hintBtn"
+                        class="px-3 py-1.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-sm"
+                    >
+                        힌트
+                    </button>
+                    <button
+                        id="solveBtn"
+                        class="px-3 py-1.5 rounded-md bg-slate-700 hover:bg-slate-800 text-white text-sm"
+                    >
+                        정답 보기
+                    </button>
+                    <button
+                        id="clearBtn"
+                        class="px-3 py-1.5 rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-sm"
+                    >
+                        지우기
+                    </button>
+                    <span
+                        class="ml-2 text-sm font-semibold tabular-nums"
+                        id="timer"
+                        >00:00</span
+                    >
+                </div>
+            </header>
+
+            <!-- 보드 & 사이드 설명 -->
+            <div class="grid md:grid-cols-[auto,1fr] gap-6 items-start">
+                <!-- Sudoku Board -->
+                <div class="mx-auto">
+                    <div
+                        id="board"
+                        class="grid grid-cols-9 w-[min(92vw,540px)] aspect-square rounded-lg overflow-hidden bg-white dark:bg-slate-800 shadow-lg"
+                    >
+                        <!-- JS에서 셀 생성 -->
+                    </div>
+                    <div
+                        id="statusMsg"
+                        class="mt-3 text-center text-sm text-slate-600 dark:text-slate-300"
+                    ></div>
+                </div>
+
+                <!-- 도움말 -->
+                <aside class="hidden md:block">
+                    <div
+                        class="p-4 rounded-lg bg-white/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
+                    >
+                        <h2 class="font-semibold mb-2">사용 방법</h2>
+                        <ul
+                            class="list-disc list-inside text-sm space-y-1 text-slate-700 dark:text-slate-300"
+                        >
+                            <li>
+                                빈 칸을 클릭하고 <b>1–9</b> 숫자를 입력하세요.
+                            </li>
+                            <li>
+                                방향키(←↑→↓)로 셀 이동, <b>Backspace</b>로
+                                지우기.
+                            </li>
+                            <li>
+                                <b>정답 확인</b>: 현재 입력이 규칙을 위반하는지
+                                체크합니다.
+                            </li>
+                            <li>
+                                <b>힌트</b>: 임의의 빈 칸 한 칸을 채워줍니다.
+                            </li>
+                            <li><b>정답 보기</b>: 퍼즐을 즉시 해결합니다.</li>
+                            <li>
+                                <b>지우기</b>: 고정 칸을 제외하고 모두 비웁니다.
+                            </li>
+                        </ul>
+                    </div>
+                </aside>
+            </div>
+        </div>
+
+        <!-- 로딩 오버레이 -->
+        <div
+            id="overlay"
+            class="fixed inset-0 bg-black/30 backdrop-blur-sm hidden items-center justify-center z-50"
+        >
+            <div
+                class="px-5 py-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl"
+            >
+                <div class="flex items-center gap-3">
+                    <svg
+                        class="animate-spin h-5 w-5 text-blue-600"
+                        viewBox="0 0 24 24"
+                    >
+                        <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                            fill="none"
+                        ></circle>
+                        <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                        ></path>
+                    </svg>
+                    <span class="text-sm"
+                        >퍼즐 생성 중… 잠시만 기다려주세요</span
+                    >
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // ======== Sudoku Core ========
+            const N = 9;
+            const boardEl = document.getElementById("board");
+            const statusMsg = document.getElementById("statusMsg");
+            const overlay = document.getElementById("overlay");
+            const timerEl = document.getElementById("timer");
+            const difficultyEl = document.getElementById("difficulty");
+
+            let cells = []; // input elements
+            let puzzle = new Array(81).fill(0); // current puzzle state (0 for empty)
+            let fixed = new Array(81).fill(false); // true if given cell (locked)
+            let solution = new Array(81).fill(0); // solved board
+            let selectedIdx = 0;
+            let timer = 0; // seconds
+            let timerId = null;
+
+            function idx(r, c) {
+                return r * 9 + c;
+            }
+            function rowOf(i) {
+                return Math.floor(i / 9);
+            }
+            function colOf(i) {
+                return i % 9;
+            }
+            function boxOf(i) {
+                const r = rowOf(i),
+                    c = colOf(i);
+                return Math.floor(r / 3) * 3 + Math.floor(c / 3);
+            }
+
+            function shuffle(arr) {
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }
+
+            function isValid(board, pos, val) {
+                const r = rowOf(pos),
+                    c = colOf(pos);
+                for (let k = 0; k < 9; k++) {
+                    if (board[idx(r, k)] === val && idx(r, k) !== pos)
+                        return false;
+                    if (board[idx(k, c)] === val && idx(k, c) !== pos)
+                        return false;
+                }
+                const br = Math.floor(r / 3) * 3,
+                    bc = Math.floor(c / 3) * 3;
+                for (let rr = br; rr < br + 3; rr++) {
+                    for (let cc = bc; cc < bc + 3; cc++) {
+                        const p = idx(rr, cc);
+                        if (board[p] === val && p !== pos) return false;
+                    }
+                }
+                return true;
+            }
+
+            function nextEmpty(board) {
+                for (let i = 0; i < 81; i++) if (board[i] === 0) return i;
+                return -1;
+            }
+
+            // Backtracking solver; if countOnly=true, count up to limit solutions
+            function solveBoard(board, countOnly = false, limit = 2) {
+                let count = 0;
+                const work = board.slice();
+
+                function backtrack() {
+                    const i = nextEmpty(work);
+                    if (i === -1) {
+                        if (countOnly) {
+                            count++;
+                            return count >= limit; // early stop if reached limit
+                        }
+                        return true; // solved
+                    }
+                    const candidates = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+                    for (const v of candidates) {
+                        if (isValid(work, i, v)) {
+                            work[i] = v;
+                            const res = backtrack();
+                            if (!countOnly && res) return true;
+                            if (countOnly && res) return true; // early exit when limit reached
+                            work[i] = 0;
+                        }
+                    }
+                    return false;
+                }
+
+                const res = backtrack();
+                return countOnly ? count : res ? work : null;
+            }
+
+            function generateSolvedBoard() {
+                const empty = new Array(81).fill(0);
+                // Seed diagonal boxes to speed up solving
+                for (let b = 0; b < 3; b++) {
+                    const nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+                    const startR = b * 3,
+                        startC = b * 3;
+                    let t = 0;
+                    for (let r = startR; r < startR + 3; r++) {
+                        for (let c = startC; c < startC + 3; c++) {
+                            empty[idx(r, c)] = nums[t++];
+                        }
+                    }
+                }
+                // Solve the rest
+                const solved = solveBoard(empty, false);
+                if (!solved) return generateSolvedBoard(); // very rare
+                return solved;
+            }
+
+            // Make puzzle by removing cells while keeping unique solution
+            function makePuzzleFromSolution(solved, difficulty = "easy") {
+                const targetRanges = {
+                    easy: [40, 45],
+                    medium: [32, 36],
+                    hard: [26, 30],
+                };
+                const [minClues, maxClues] =
+                    targetRanges[difficulty] || targetRanges.easy;
+                const targetClues =
+                    Math.floor(Math.random() * (maxClues - minClues + 1)) +
+                    minClues;
+
+                const puz = solved.slice();
+                // indices 0..80 shuffled; remove symmetrically (i and 80 - i)
+                const order = shuffle([...Array(81).keys()]);
+
+                const removePair = (i) => {
+                    const j = 80 - i;
+                    if (puz[i] === 0) return false; // already empty
+                    const vi = puz[i];
+                    const vj = puz[j];
+                    puz[i] = 0;
+                    const changedJ = j !== i && puz[j] !== 0;
+                    if (changedJ) puz[j] = 0;
+
+                    const count = solveBoard(puz, true, 2);
+                    const ok = count === 1;
+                    if (!ok) {
+                        puz[i] = vi;
+                        if (changedJ) puz[j] = vj;
+                    }
+                    return ok;
+                };
+
+                for (const i of order) {
+                    const cluesNow = puz.filter((v) => v !== 0).length;
+                    if (cluesNow <= targetClues) break;
+                    removePair(i);
+                }
+                // If still too many clues, try single removals
+                for (const i of order) {
+                    const cluesNow = puz.filter((v) => v !== 0).length;
+                    if (cluesNow <= targetClues) break;
+                    if (puz[i] !== 0) {
+                        const vi = puz[i];
+                        puz[i] = 0;
+                        const count = solveBoard(puz, true, 2);
+                        if (count !== 1) puz[i] = vi;
+                    }
+                }
+                return puz;
+            }
+
+            // ======== UI Rendering ========
+            function thickBorderClasses(i) {
+                const r = rowOf(i),
+                    c = colOf(i);
+                const cls = [];
+                // base border
+                cls.push("border", "border-slate-300", "dark:border-slate-600");
+                // thick grid lines
+                if (c % 3 === 0)
+                    cls.push(
+                        "border-l-2",
+                        "border-l-slate-700",
+                        "dark:border-l-slate-300",
+                    );
+                if (r % 3 === 0)
+                    cls.push(
+                        "border-t-2",
+                        "border-t-slate-700",
+                        "dark:border-t-slate-300",
+                    );
+                if (c === 8)
+                    cls.push(
+                        "border-r-2",
+                        "border-r-slate-700",
+                        "dark:border-r-slate-300",
+                    );
+                if (r === 8)
+                    cls.push(
+                        "border-b-2",
+                        "border-b-slate-700",
+                        "dark:border-b-slate-300",
+                    );
+                return cls.join(" ");
+            }
+
+            function renderBoard() {
+                boardEl.innerHTML = "";
+                cells = [];
+                for (let i = 0; i < 81; i++) {
+                    const wrapper = document.createElement("div");
+                    wrapper.className = thickBorderClasses(i) + " relative";
+
+                    const input = document.createElement("input");
+                    input.type = "text";
+                    input.maxLength = 1;
+                    input.inputMode = "numeric";
+                    input.pattern = "[1-9]*";
+                    input.className = [
+                        "w-full h-full",
+                        "text-center",
+                        "text-[20px] md:text-[22px] lg:text-[24px] font-medium",
+                        "focus:outline-none focus:bg-blue-50 dark:focus:bg-slate-700/60",
+                        "bg-white dark:bg-slate-800",
+                        "text-slate-900 dark:text-slate-100",
+                        "selection:bg-blue-200 selection:text-blue-900",
+                        "caret-blue-600",
+                    ].join(" ");
+
+                    if (fixed[i]) {
+                        input.value = puzzle[i] || "";
+                        input.readOnly = true;
+                        input.classList.add(
+                            "bg-slate-100",
+                            "dark:bg-slate-700/50",
+                            "font-semibold",
+                        );
+                    } else {
+                        input.value = puzzle[i] ? String(puzzle[i]) : "";
+                    }
+
+                    input.dataset.index = i;
+                    input.addEventListener("focus", () => selectCell(i));
+                    input.addEventListener("input", (e) => onInput(e, i));
+                    input.addEventListener("keydown", (e) => onKeyDown(e, i));
+
+                    wrapper.appendChild(input);
+                    boardEl.appendChild(wrapper);
+                    cells.push(input);
+                }
+                // Set initial selection
+                selectCell(selectedIdx || 0);
+                updateConflicts();
+            }
+
+            function selectCell(i) {
+                selectedIdx = i;
+                // highlight row/col/box peers and selection
+                for (let k = 0; k < 81; k++) {
+                    const el = cells[k];
+                    el.parentElement.classList.remove(
+                        "bg-blue-50",
+                        "dark:bg-slate-700/40",
+                    );
+                }
+                const sr = rowOf(i),
+                    sc = colOf(i),
+                    sb = boxOf(i);
+                for (let k = 0; k < 81; k++) {
+                    const r = rowOf(k),
+                        c = colOf(k),
+                        b = boxOf(k);
+                    if (r === sr || c === sc || b === sb) {
+                        cells[k].parentElement.classList.add(
+                            "bg-blue-50",
+                            "dark:bg-slate-700/40",
+                        );
+                    }
+                }
+                // selected cell a bit stronger
+                cells[i].parentElement.classList.add(
+                    "bg-blue-100",
+                    "dark:bg-slate-700/60",
+                );
+                cells[i].focus({ preventScroll: true });
+            }
+
+            function onInput(e, i) {
+                if (fixed[i]) {
+                    e.target.value = puzzle[i] || "";
+                    return;
+                }
+                const val = e.target.value.replace(/[^1-9]/g, "");
+                e.target.value = val.slice(0, 1);
+                puzzle[i] = val ? Number(val) : 0;
+                updateConflicts();
+                if (isComplete() && isCorrect()) {
+                    statusMsg.textContent =
+                        "🎉 축하합니다! 퍼즐을 해결했습니다.";
+                } else {
+                    statusMsg.textContent = "";
+                }
+            }
+
+            function onKeyDown(e, i) {
+                const r = rowOf(i),
+                    c = colOf(i);
+                if (e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    moveFocus(r, c - 1);
+                } else if (e.key === "ArrowRight") {
+                    e.preventDefault();
+                    moveFocus(r, c + 1);
+                } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    moveFocus(r - 1, c);
+                } else if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    moveFocus(r + 1, c);
+                } else if (e.key === "Backspace" || e.key === "Delete") {
+                    if (!fixed[i]) {
+                        puzzle[i] = 0;
+                        cells[i].value = "";
+                        updateConflicts();
+                    }
+                } else if (/^[1-9]$/.test(e.key)) {
+                    if (!fixed[i]) {
+                        puzzle[i] = Number(e.key);
+                        cells[i].value = e.key;
+                        updateConflicts();
+                        // auto-move right
+                        moveFocus(r, c + 1);
+                    }
+                    e.preventDefault();
+                } else if (e.key === "Tab") {
+                    // allow normal tab navigation
+                } else if (e.key.length === 1) {
+                    // block other chars
+                    e.preventDefault();
+                }
+            }
+
+            function moveFocus(r, c) {
+                if (r < 0) r = 8;
+                if (r > 8) r = 0;
+                if (c < 0) c = 8;
+                if (c > 8) c = 0;
+                selectCell(idx(r, c));
+            }
+
+            function isComplete() {
+                return puzzle.every((v) => v !== 0);
+            }
+            function isCorrect() {
+                for (let i = 0; i < 81; i++) {
+                    if (puzzle[i] !== solution[i]) return false;
+                }
+                return true;
+            }
+
+            function updateConflicts() {
+                // Clear conflict styles
+                for (let i = 0; i < 81; i++) {
+                    const el = cells[i];
+                    el.classList.remove(
+                        "text-red-700",
+                        "bg-red-100",
+                        "border-red-400",
+                        "dark:bg-red-900/30",
+                        "dark:text-red-300",
+                    );
+                    el.parentElement.classList.remove("ring-2", "ring-red-400");
+                }
+                // Mark conflicts for any rule violations
+                for (let i = 0; i < 81; i++) {
+                    const v = puzzle[i];
+                    if (!v) continue;
+                    if (!isValid(puzzle, i, v)) {
+                        const el = cells[i];
+                        el.classList.add(
+                            "text-red-700",
+                            "bg-red-100",
+                            "border-red-400",
+                            "dark:bg-red-900/30",
+                            "dark:text-red-300",
+                        );
+                        el.parentElement.classList.add(
+                            "ring-2",
+                            "ring-red-400",
+                        );
+                    }
+                }
+            }
+
+            function checkCurrent() {
+                updateConflicts();
+                // additionally, show message if all placed are consistent with solution
+                let ok = true;
+                for (let i = 0; i < 81; i++) {
+                    if (puzzle[i] !== 0 && puzzle[i] !== solution[i]) {
+                        ok = false;
+                        break;
+                    }
+                }
+                statusMsg.textContent = ok
+                    ? "✅ 현재까지 입력은 맞습니다. 계속 진행해보세요!"
+                    : "❌ 일부 칸이 정답과 다릅니다. 빨간 표시를 확인하세요.";
+            }
+
+            function fillHint() {
+                const empties = [];
+                for (let i = 0; i < 81; i++)
+                    if (puzzle[i] === 0) empties.push(i);
+                if (empties.length === 0) return;
+                const pos = empties[Math.floor(Math.random() * empties.length)];
+                const v = solution[pos];
+                puzzle[pos] = v;
+                cells[pos].value = String(v);
+                cells[pos].classList.add(
+                    "bg-green-50",
+                    "dark:bg-emerald-900/20",
+                );
+                updateConflicts();
+                selectCell(pos);
+                if (isComplete() && isCorrect()) {
+                    statusMsg.textContent =
+                        "🎉 축하합니다! 퍼즐을 해결했습니다.";
+                }
+            }
+
+            function showSolution() {
+                for (let i = 0; i < 81; i++) {
+                    if (!fixed[i]) {
+                        puzzle[i] = solution[i];
+                        cells[i].value = String(solution[i]);
+                    }
+                }
+                updateConflicts();
+                statusMsg.textContent = "정답을 표시했습니다.";
+            }
+
+            function clearBoardKeepGivens() {
+                for (let i = 0; i < 81; i++) {
+                    if (!fixed[i]) {
+                        puzzle[i] = 0;
+                        cells[i].value = "";
+                    }
+                }
+                updateConflicts();
+                statusMsg.textContent = "고정 칸을 제외하고 모두 지웠습니다.";
+            }
+
+            // ======== Game Lifecycle ========
+            function startTimer() {
+                stopTimer();
+                timer = 0;
+                timerId = setInterval(() => {
+                    timer++;
+                    const mm = String(Math.floor(timer / 60)).padStart(2, "0");
+                    const ss = String(timer % 60).padStart(2, "0");
+                    timerEl.textContent = `${mm}:${ss}`;
+                }, 1000);
+            }
+            function stopTimer() {
+                if (timerId) clearInterval(timerId);
+                timerId = null;
+            }
+
+            function showOverlay(show) {
+                overlay.classList.toggle("hidden", !show);
+                overlay.classList.toggle("flex", show);
+            }
+
+            function newGame(difficulty = "easy") {
+                showOverlay(true);
+                statusMsg.textContent = "";
+                setTimeout(() => {
+                    solution = generateSolvedBoard();
+                    puzzle = makePuzzleFromSolution(solution, difficulty);
+                    fixed = puzzle.map((v) => v !== 0);
+                    selectedIdx = 0;
+                    renderBoard();
+                    startTimer();
+                    showOverlay(false);
+                }, 30); // allow overlay to paint
+            }
+
+            // ======== Event bindings ========
+            document.getElementById("newGame").addEventListener("click", () => {
+                newGame(difficultyEl.value);
+            });
+            document
+                .getElementById("checkBtn")
+                .addEventListener("click", checkCurrent);
+            document
+                .getElementById("hintBtn")
+                .addEventListener("click", fillHint);
+            document
+                .getElementById("solveBtn")
+                .addEventListener("click", showSolution);
+            document
+                .getElementById("clearBtn")
+                .addEventListener("click", clearBoardKeepGivens);
+
+            // Initialize first game
+            (function init() {
+                // Prepare empty board first for immediate UI
+                puzzle = new Array(81).fill(0);
+                fixed = new Array(81).fill(false);
+                renderBoard();
+                newGame("easy");
+            })();
+        </script>
+    </body>
+</html>
